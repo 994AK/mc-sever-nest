@@ -8,9 +8,8 @@ datasource db {
 }
 
 model User {
-  id       Int    @id @default(autoincrement())
-  name     String
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
   createdAt DateTime @default(now())
-  // 0 待审核 1通过 2不通过
-  status   Int      @default(0)
+  status    Int      @default(0)
 }

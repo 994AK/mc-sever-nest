@@ -20,11 +20,22 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, Response<T>> {
     next: CallHandler,
   ): Observable<Response<T>> {
     return next.handle().pipe(
-      map((data) => ({
-        code: 200,
-        data,
-        message: 'Request successful',
-      })),
+      map((data) => {
+        if (
+          data &&
+          typeof data === 'object' &&
+          'code' in data &&
+          'data' in data &&
+          'message' in data
+        ) {
+          return data;
+        }
+        return {
+          code: 200,
+          data: data.user || data,
+          message: data.message || 'Request successful',
+        };
+      }),
     );
   }
 }

@@ -1,7 +1,7 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Rcon } from 'rcon-client';
 import { ConfigService } from '@nestjs/config';
-import { PlayersData, PlayersItem } from '../types/players';
+import { PlayersItem } from '../types/players';
 
 @Injectable()
 export class RconService implements OnModuleInit, OnModuleDestroy {
@@ -42,6 +42,15 @@ export class RconService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       console.error('Error fetching player list:', error);
       throw new Error('Failed to fetch player list');
+    }
+  }
+
+  async send(command: string): Promise<string> {
+    try {
+      return await this.rcon.send(command);
+    } catch (error) {
+      console.error('Failed to send RCON command:', error);
+      throw error;
     }
   }
 }
