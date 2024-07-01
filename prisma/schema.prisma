@@ -7,9 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  createdAt DateTime @default(now())
-  status    Int      @default(0)
+model Player {
+  id         Int      @id @default(autoincrement())
+  qq         String
+  playerName String
+  status     Int      @default(0)
+  createdAt  DateTime @default(now())
 }

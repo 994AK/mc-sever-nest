@@ -1,55 +1,58 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Rcon } from 'rcon-client';
-import { ConfigService } from '@nestjs/config';
-import { PlayersItem } from '../types/players';
+import { Injectable, Logger } from '@nestjs/common';
+import { RconManager } from './rcon.manager';
 
 @Injectable()
-export class RconService implements OnModuleInit, OnModuleDestroy {
-  private rcon: Rcon;
+export class RconService {
+  private readonly logger = new Logger(RconService.name);
 
-  constructor(private configService: ConfigService) {}
+  constructor(private readonly rconManager: RconManager) {}
 
-  async onModuleInit() {
-    const host = this.configService.get<string>('RCON_HOST');
-    const port = this.configService.get<number>('RCON_PORT');
-    const password = this.configService.get<string>('RCON_PASSWORD');
-
-    this.rcon = new Rcon({
-      host,
-      port,
-      password,
-    });
-    await this.rcon.connect();
-  }
-
-  async onModuleDestroy() {
-    await this.rcon.end();
-  }
-
-  async getPlayerList(): Promise<{ players: PlayersItem }> {
+  async sendCommand(
+    host: string,
+    port: number,
+    password: string,
+    command: string,
+  ): Promise<string> {
+    let rcon;
     try {
-      const response = await this.rcon.send('list');
-      const playerListString = response.split(':')[1]?.trim() || '';
-      const playerNames = playerListString ? playerListString.split(', ') : [];
-
-      return {
-        players: {
-          max: 60, // 假设最大玩家数是60，根据实际情况修改
-          now: playerNames.length,
-          sample: playerNames.map((name) => ({ name })),
-        },
-      };
-    } catch (error) {
-      console.error('Error fetching player list:', error);
-      throw new Error('Failed to fetch player list');
+      rcon = await this.rconManager.getConnection(host, port, password);
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to get RCON connection: ${error.message}`,
+        error.stack,
+      );
+      throw error;
     }
-  }
 
-  async send(command: string): Promise<string> {
     try {
-      return await this.rcon.send(command);
-    } catch (error) {
-      console.error('Failed to send RCON command:', error);
+      this.logger.log(`Sending command: ${command} to ${host}:${port}`);
+      const response = await rcon.send(command);
+      this.logger.log(`Received response: ${response}`);
+      return response;
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to send RCON command: ${error.message}`,
+        error.stack,
+      );
+      if (error.code === 'ECONNRESET') {
+        this.logger.warn(
+          `Connection reset by peer, attempting to reconnect...`,
+        );
+        await this.rconManager.closeConnection(host, port);
+        // 重试连接和命令
+        try {
+          rcon = await this.rconManager.getConnection(host, port, password);
+          const response = await rcon.send(command);
+          this.logger.log(`Received response after reconnect: ${response}`);
+          return response;
+        } catch (reconnectError: any) {
+          this.logger.error(
+            `Failed to reconnect RCON: ${reconnectError.message}`,
+            reconnectError.stack,
+          );
+          throw reconnectError;
+        }
+      }
       throw error;
     }
   }
